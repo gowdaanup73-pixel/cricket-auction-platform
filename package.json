@@ -12,7 +12,8 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "tsx tests/hardening.test.ts",
     "test:concurrency": "tsx tests/concurrency.test.ts",
-    "test:hardening": "tsx tests/hardening.test.ts"
+    "test:hardening": "tsx tests/hardening.test.ts",
+    "test:unit": "tsx tests/dynamic-bidders.unit.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

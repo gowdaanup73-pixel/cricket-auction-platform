@@ -219,9 +219,15 @@ export default function AuctioneerControlPage() {
                 isPaused={auction.status === "PAUSED"}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TeamRail participant={teamA} items={auction.items} variant="team-a" />
-                <TeamRail participant={teamB} items={auction.items} variant="team-b" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                {auction.participants.map((p, idx) => (
+                  <TeamRail
+                    key={p.id || idx}
+                    participant={p}
+                    items={auction.items}
+                    variant={idx % 2 === 0 ? "team-a" : "team-b"}
+                  />
+                ))}
               </div>
             </div>
 

@@ -45,22 +45,34 @@ const roomPresence = global.auctionRoomPresence;
 
 export function checkBidderReadiness(
   auctionId: string,
-  participants: { id: string; userId?: string }[]
+  participants: { id: string; userId?: string }[],
+  requiredCount?: number
 ): {
   bidderAReady: boolean;
   bidderBReady: boolean;
   allBiddersReady: boolean;
+  readyBidderCount: number;
+  requiredBidderCount: number;
+  participantReadiness: Record<string, boolean>;
 } {
   const socketsMap = roomPresence.get(auctionId);
-  if (!socketsMap || participants.length < 2) {
-    return { bidderAReady: false, bidderBReady: false, allBiddersReady: false };
+  const targetCount = requiredCount || (participants.length > 0 ? participants.length : 2);
+  const participantReadiness: Record<string, boolean> = {};
+
+  participants.forEach((p) => {
+    participantReadiness[p.id] = false;
+  });
+
+  if (!socketsMap || participants.length < targetCount) {
+    return {
+      bidderAReady: false,
+      bidderBReady: false,
+      allBiddersReady: false,
+      readyBidderCount: 0,
+      requiredBidderCount: targetCount,
+      participantReadiness,
+    };
   }
-
-  const pA = participants[0];
-  const pB = participants[1];
-
-  let bidderAReady = false;
-  let bidderBReady = false;
 
   for (const meta of socketsMap.values()) {
     // Spectators are strictly excluded
@@ -69,29 +81,35 @@ export function checkBidderReadiness(
     // Cross-auction check: guest or user must belong to this specific auction
     if (meta.auctionId && meta.auctionId !== auctionId) continue;
 
-    // Match Team A
-    if (
-      meta.teamSlot === "A" ||
-      (meta.participantId && meta.participantId === pA.id) ||
-      (meta.userId && meta.userId === pA.userId)
-    ) {
-      bidderAReady = true;
-    }
-
-    // Match Team B
-    if (
-      meta.teamSlot === "B" ||
-      (meta.participantId && meta.participantId === pB.id) ||
-      (meta.userId && meta.userId === pB.userId)
-    ) {
-      bidderBReady = true;
-    }
+    participants.forEach((p, idx) => {
+      const slotLetter = String.fromCharCode(65 + idx);
+      if (
+        meta.participantId === p.id ||
+        (meta.userId && meta.userId === p.userId) ||
+        meta.teamSlot === slotLetter ||
+        (idx === 0 && meta.teamSlot === "A") ||
+        (idx === 1 && meta.teamSlot === "B")
+      ) {
+        participantReadiness[p.id] = true;
+      }
+    });
   }
+
+  const pA = participants[0];
+  const pB = participants[1];
+  const bidderAReady = pA ? !!participantReadiness[pA.id] : false;
+  const bidderBReady = pB ? !!participantReadiness[pB.id] : false;
+
+  const readyBidderCount = Object.values(participantReadiness).filter(Boolean).length;
+  const allBiddersReady = readyBidderCount >= targetCount;
 
   return {
     bidderAReady,
     bidderBReady,
-    allBiddersReady: bidderAReady && bidderBReady,
+    allBiddersReady,
+    readyBidderCount,
+    requiredBidderCount: targetCount,
+    participantReadiness,
   };
 }
 
@@ -123,11 +141,11 @@ export async function broadcastPresence(auctionId: string) {
       include: { participants: true, items: true },
     });
 
-    const { bidderAReady, bidderBReady, allBiddersReady } = auction
-      ? checkBidderReadiness(auctionId, auction.participants)
-      : { bidderAReady: false, bidderBReady: false, allBiddersReady: false };
+    const { bidderAReady, bidderBReady, allBiddersReady, readyBidderCount, requiredBidderCount, participantReadiness } = auction
+      ? checkBidderReadiness(auctionId, auction.participants, auction.bidderCount || auction.participants.length || 2)
+      : { bidderAReady: false, bidderBReady: false, allBiddersReady: false, readyBidderCount: 0, requiredBidderCount: 2, participantReadiness: {} };
 
-    // If auction is in DRAFT, both required bidder teams are connected AND configuration is complete, transition to READY
+    // If auction is in DRAFT, required bidder teams are connected AND configuration is complete, transition to READY
     if (
       auction &&
       auction.status === "DRAFT" &&
@@ -143,6 +161,9 @@ export async function broadcastPresence(auctionId: string) {
         status: "READY",
         bidderAReady,
         bidderBReady,
+        allBiddersReady,
+        readyBidderCount,
+        requiredBidderCount,
       });
       io.to(room).emit("auction_status_changed", {
         auctionId,
@@ -172,6 +193,9 @@ export async function broadcastPresence(auctionId: string) {
       bidderAReady,
       bidderBReady,
       allBiddersReady,
+      readyBidderCount,
+      requiredBidderCount,
+      participantReadiness,
     });
     io.to(room).emit("spectator_count_updated", { auctionId, count: totalCount });
   } catch (e) {

@@ -115,8 +115,21 @@ export async function POST(
 
             // Verify underlying invite token has not been revoked or regenerated
             let currentInviteToken: string | null = null;
-            if (caller.guest.teamSlot === "A") currentInviteToken = auction.bidderInviteA;
-            else if (caller.guest.teamSlot === "B") currentInviteToken = auction.bidderInviteB;
+            let parsedTokens: string[] = [];
+            if (auction.bidderInvites) {
+              try {
+                parsedTokens = JSON.parse(auction.bidderInvites);
+              } catch (e) {}
+            }
+
+            if (caller.guest.teamSlot === "A") currentInviteToken = auction.bidderInviteA || parsedTokens[0] || null;
+            else if (caller.guest.teamSlot === "B") currentInviteToken = auction.bidderInviteB || parsedTokens[1] || null;
+            else if (caller.guest.teamSlot) {
+              const slotIdx = caller.guest.teamSlot.charCodeAt(0) - 65;
+              if (slotIdx >= 0 && slotIdx < parsedTokens.length) {
+                currentInviteToken = parsedTokens[slotIdx];
+              }
+            }
 
             if (!currentInviteToken || currentInviteToken !== caller.guest.tokenVersion) {
               throw new Error("FORBIDDEN: Your invitation has been regenerated or revoked");

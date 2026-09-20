@@ -46,10 +46,20 @@ export async function POST(
     }
 
     // Verify bidder readiness if in DRAFT or if checking presence
-    const { allBiddersReady } = checkBidderReadiness(auctionId, fullAuction.participants);
+    const requiredBidderCount = fullAuction.bidderCount || fullAuction.participants.length || 2;
+    const { allBiddersReady, readyBidderCount } = checkBidderReadiness(
+      auctionId,
+      fullAuction.participants,
+      requiredBidderCount
+    );
     if (fullAuction.status === "DRAFT" && !allBiddersReady) {
       return NextResponse.json(
-        { error: "Cannot start auction: Both Bidder A and Bidder B must be connected and ready." },
+        {
+          error:
+            requiredBidderCount === 2
+              ? "Cannot start auction: Both Bidder A and Bidder B must be connected and ready."
+              : `Cannot start auction: All ${requiredBidderCount} bidders must be connected and ready (${readyBidderCount}/${requiredBidderCount} connected).`,
+        },
         { status: 400 }
       );
     }

@@ -34,9 +34,11 @@ export async function GET(
       return NextResponse.json({ error: "Auction not found" }, { status: 404 });
     }
 
-    const { bidderAReady, bidderBReady, allBiddersReady } = checkBidderReadiness(
+    const requiredBidderCount = fullAuction.bidderCount || fullAuction.participants.length || 2;
+    const { bidderAReady, bidderBReady, allBiddersReady, readyBidderCount, participantReadiness } = checkBidderReadiness(
       auctionId,
-      fullAuction.participants
+      fullAuction.participants,
+      requiredBidderCount
     );
 
     const checks: ReadinessCheckItem[] = [
@@ -48,14 +50,14 @@ export async function GET(
       },
       {
         id: "participants",
-        label: "Two bidder teams registered",
-        passed: fullAuction.participants.length >= 2,
-        details: `${fullAuction.participants.length}/2 teams present (${fullAuction.participants.map(p => p.teamName).join(", ") || "none"})`,
+        label: `${requiredBidderCount} bidder teams registered`,
+        passed: fullAuction.participants.length >= requiredBidderCount,
+        details: `${fullAuction.participants.length}/${requiredBidderCount} teams present (${fullAuction.participants.map(p => p.teamName).join(", ") || "none"})`,
       },
       {
         id: "budgets",
         label: "Team purses funded",
-        passed: fullAuction.participants.length >= 2 && fullAuction.participants.every(p => p.initialBudget > 0),
+        passed: fullAuction.participants.length >= requiredBidderCount && fullAuction.participants.every(p => p.initialBudget > 0),
         details: fullAuction.participants.map(p => `${p.teamName}: ₹${(p.initialBudget / 100000).toFixed(1)}L`).join(" | ") || "Budgets not set",
       },
       {
@@ -97,20 +99,16 @@ export async function GET(
       {
         id: "invites",
         label: "Cryptographic invite credentials generated",
-        passed: !!(fullAuction.bidderInviteA && fullAuction.bidderInviteB && fullAuction.spectatorInvite),
+        passed: !!(fullAuction.spectatorInvite && (fullAuction.bidderInvites || (fullAuction.bidderInviteA && fullAuction.bidderInviteB))),
         details: "Unguessable crypto invite keys ready for distribution",
       },
       {
-        id: "bidder_a_ready",
-        label: "Team Alpha (Bidder A) connected",
-        passed: bidderAReady || fullAuction.status === "READY",
-        details: bidderAReady || fullAuction.status === "READY" ? "Bidder A is connected" : "Awaiting Bidder A connection",
-      },
-      {
-        id: "bidder_b_ready",
-        label: "Team Beta (Bidder B) connected",
-        passed: bidderBReady || fullAuction.status === "READY",
-        details: bidderBReady || fullAuction.status === "READY" ? "Bidder B is connected" : "Awaiting Bidder B connection",
+        id: "bidders_ready",
+        label: `All ${requiredBidderCount} bidder teams connected`,
+        passed: allBiddersReady || fullAuction.status === "READY",
+        details: allBiddersReady || fullAuction.status === "READY"
+          ? `All ${requiredBidderCount} bidder teams connected and ready`
+          : `${readyBidderCount}/${requiredBidderCount} bidders connected`,
       },
     ];
 

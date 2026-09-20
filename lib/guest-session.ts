@@ -83,8 +83,21 @@ export async function validateGuestSessionWithDB(
 
     if (session.role === "BIDDER") {
       let currentToken: string | null = null;
-      if (session.teamSlot === "A") currentToken = auction.bidderInviteA;
-      else if (session.teamSlot === "B") currentToken = auction.bidderInviteB;
+      let parsedTokens: string[] = [];
+      if (auction.bidderInvites) {
+        try {
+          parsedTokens = JSON.parse(auction.bidderInvites);
+        } catch (e) {}
+      }
+
+      if (session.teamSlot === "A") currentToken = auction.bidderInviteA || parsedTokens[0] || null;
+      else if (session.teamSlot === "B") currentToken = auction.bidderInviteB || parsedTokens[1] || null;
+      else if (session.teamSlot) {
+        const slotIdx = session.teamSlot.charCodeAt(0) - 65;
+        if (slotIdx >= 0 && slotIdx < parsedTokens.length) {
+          currentToken = parsedTokens[slotIdx];
+        }
+      }
 
       // Ensure the tokenVersion in the JWT matches the current database invite token
       if (!currentToken || currentToken !== session.tokenVersion) {

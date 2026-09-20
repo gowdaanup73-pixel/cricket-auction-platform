@@ -28,6 +28,8 @@ model Auction {
   roomCode            String               @unique @default(uuid())
   bidderInviteA       String?              @unique
   bidderInviteB       String?              @unique
+  bidderInvites       String?              // JSON array of private invite tokens for all bidder slots
+  bidderCount         Int                  @default(2)
   spectatorInvite     String?              @unique
   isConfigLocked      Boolean              @default(false)
   name                String

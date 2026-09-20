@@ -368,19 +368,24 @@ export default function DedicatedBidderPage() {
                 participant={selfParticipant}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
                 <TeamRail
                   participant={selfParticipant}
                   items={auction.items}
                   variant="team-a"
                   isSelf={true}
                 />
-                <TeamRail
-                  participant={opponentParticipant}
-                  items={auction.items}
-                  variant="team-b"
-                  isSelf={false}
-                />
+                {auction.participants
+                  .filter((p) => p.id !== selfParticipant?.id)
+                  .map((p, idx) => (
+                    <TeamRail
+                      key={p.id || idx}
+                      participant={p}
+                      items={auction.items}
+                      variant="team-b"
+                      isSelf={false}
+                    />
+                  ))}
               </div>
             </div>
           </div>

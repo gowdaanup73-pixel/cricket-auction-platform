@@ -9,47 +9,59 @@ export async function GET(
   try {
     const { id } = params;
 
-    const auction = await prisma.auction.findUnique({
-      where: { id },
-      include: {
-        auctioneer: {
-          select: { id: true, name: true, email: true },
-        },
-        participants: {
+    let auction: any = null;
+    try {
+      if (process.env.DATABASE_URL) {
+        auction = await prisma.auction.findUnique({
+          where: { id },
           include: {
-            user: {
+            auctioneer: {
               select: { id: true, name: true, email: true },
             },
-          },
-        },
-        items: {
-          orderBy: { orderIndex: "asc" },
-          include: {
-            winner: {
-              select: { id: true, name: true },
-            },
-            bids: {
-              orderBy: { amount: "desc" },
-              take: 10,
+            participants: {
               include: {
-                bidder: {
-                  select: { id: true, name: true },
+                user: {
+                  select: { id: true, name: true, email: true },
                 },
               },
             },
-          },
-        },
-        transactions: {
-          include: {
-            winner: {
-              select: { id: true, name: true },
+            items: {
+              orderBy: { orderIndex: "asc" },
+              include: {
+                winner: {
+                  select: { id: true, name: true },
+                },
+                bids: {
+                  orderBy: { amount: "desc" },
+                  take: 10,
+                  include: {
+                    bidder: {
+                      select: { id: true, name: true },
+                    },
+                  },
+                },
+              },
             },
-            item: true,
+            transactions: {
+              include: {
+                winner: {
+                  select: { id: true, name: true },
+                },
+                item: true,
+              },
+              orderBy: { timestamp: "desc" },
+            },
           },
-          orderBy: { timestamp: "desc" },
-        },
-      },
-    });
+        });
+      }
+    } catch (e) {
+      // Prisma error
+    }
+
+    if (!auction) {
+      const { inMemoryAuctions } = await import("@/lib/memory-store");
+      auction = inMemoryAuctions.get(id);
+    }
 
     if (!auction) {
       return NextResponse.json({ error: "Auction not found" }, { status: 404 });

@@ -11,7 +11,7 @@ import { ArrowLeft, Check, ChevronRight, Gavel, Plus, Trash2, Trophy, Users, Shi
 
 export default function CreateAuctionPage() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user, token, login } = useAuth();
   const { addToast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -23,11 +23,47 @@ export default function CreateAuctionPage() {
   const [season, setSeason] = useState("2026");
   const [bannerUrl, setBannerUrl] = useState("");
 
-  // Step 2: Teams
-  const [teamAName, setTeamAName] = useState("Royal Challengers");
-  const [teamALogo, setTeamALogo] = useState("https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=150&auto=format&fit=crop&q=80");
-  const [teamBName, setTeamBName] = useState("Chennai Super Kings");
-  const [teamBLogo, setTeamBLogo] = useState("https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&auto=format&fit=crop&q=80");
+  // Step 2: Dynamic Teams & Bidder Count
+  const DEFAULT_FRANCHISES = [
+    { name: "Royal Challengers", color: "#3E7CB1", logo: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=150&auto=format&fit=crop&q=80", email: "bidder1@rcb.com" },
+    { name: "Chennai Super Kings", color: "#B85C38", logo: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&auto=format&fit=crop&q=80", email: "bidder2@csk.com" },
+    { name: "Mumbai Indians", color: "#1D4ED8", logo: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=150&auto=format&fit=crop&q=80", email: "bidder3@mi.com" },
+    { name: "Kolkata Knight Riders", color: "#7C3AED", logo: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?w=150&auto=format&fit=crop&q=80", email: "bidder4@kkr.com" },
+    { name: "Sunrisers Hyderabad", color: "#EA580C", logo: "https://images.unsplash.com/photo-1531415074868-036b1c57e3ce?w=150&auto=format&fit=crop&q=80", email: "bidder5@srh.com" },
+    { name: "Delhi Capitals", color: "#0284C7", logo: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=150&auto=format&fit=crop&q=80", email: "bidder6@dc.com" },
+    { name: "Rajasthan Royals", color: "#DB2777", logo: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=150&auto=format&fit=crop&q=80", email: "bidder7@rr.com" },
+    { name: "Gujarat Titans", color: "#0D9488", logo: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=150&auto=format&fit=crop&q=80", email: "bidder8@gt.com" },
+    { name: "Lucknow Super Giants", color: "#2563EB", logo: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&auto=format&fit=crop&q=80", email: "bidder9@lsg.com" },
+    { name: "Punjab Kings", color: "#DC2626", logo: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=150&auto=format&fit=crop&q=80", email: "bidder10@pbks.com" },
+  ];
+
+  const [bidderCount, setBidderCount] = useState(2);
+  const [teams, setTeams] = useState([
+    { teamName: DEFAULT_FRANCHISES[0].name, teamLogoUrl: DEFAULT_FRANCHISES[0].logo, teamColor: DEFAULT_FRANCHISES[0].color, userEmail: DEFAULT_FRANCHISES[0].email },
+    { teamName: DEFAULT_FRANCHISES[1].name, teamLogoUrl: DEFAULT_FRANCHISES[1].logo, teamColor: DEFAULT_FRANCHISES[1].color, userEmail: DEFAULT_FRANCHISES[1].email },
+  ]);
+
+  const handleBidderCountChange = (newCount: number) => {
+    if (newCount < 2 || newCount > 10) return;
+    setBidderCount(newCount);
+    setTeams((prev) => {
+      const updated = [...prev];
+      if (newCount > updated.length) {
+        for (let i = updated.length; i < newCount; i++) {
+          const defaultF = DEFAULT_FRANCHISES[i % DEFAULT_FRANCHISES.length];
+          updated.push({
+            teamName: defaultF.name,
+            teamLogoUrl: defaultF.logo,
+            teamColor: defaultF.color,
+            userEmail: defaultF.email,
+          });
+        }
+      } else if (newCount < updated.length) {
+        return updated.slice(0, newCount);
+      }
+      return updated;
+    });
+  };
 
   // Step 3: Budgets
   const [initialBudget, setInitialBudget] = useState(100000000); // 10 Cr
@@ -142,6 +178,10 @@ export default function CreateAuctionPage() {
   };
 
   const handleCreateAuction = async () => {
+    if (!token || !user) {
+      addToast("Please sign in as an Auctioneer before launching the auction", "error");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auctions", {
@@ -155,28 +195,20 @@ export default function CreateAuctionPage() {
           description,
           sport,
           season,
+          bidderCount,
           minimumBidIncrement,
           timerDuration,
           antiSnipeThreshold,
           antiSnipeExtension,
           minSquadSize,
           maxSquadSize,
-          teams: [
-            {
-              teamName: teamAName,
-              teamLogoUrl: teamALogo,
-              teamColor: "#3E7CB1",
-              initialBudget,
-              userEmail: "bidder1@rcb.com",
-            },
-            {
-              teamName: teamBName,
-              teamLogoUrl: teamBLogo,
-              teamColor: "#B85C38",
-              initialBudget,
-              userEmail: "bidder2@csk.com",
-            },
-          ],
+          teams: teams.map((t, idx) => ({
+            teamName: t.teamName,
+            teamLogoUrl: t.teamLogoUrl,
+            teamColor: t.teamColor || DEFAULT_FRANCHISES[idx % DEFAULT_FRANCHISES.length].color,
+            initialBudget,
+            userEmail: t.userEmail || `bidder${idx + 1}@franchise.com`,
+          })),
           items: players.map((p, idx) => ({
             name: p.name,
             category: p.category,
@@ -209,7 +241,23 @@ export default function CreateAuctionPage() {
           <ArrowLeft className="w-4 h-4" />
           <span>Back to lobby</span>
         </Link>
-        <span className="text-[13px] text-[#8B939A]">Pre-auction setup wizard</span>
+        <div className="flex items-center gap-4">
+          <span className="text-[13px] text-[#8B939A] hidden sm:inline">Pre-auction setup wizard</span>
+          {user ? (
+            <div className="flex items-center gap-2 text-[12px] bg-[#10151A] px-2.5 py-1 rounded border border-[#2B343C]">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-[#EDEAE1] font-medium">{user.name}</span>
+              <span className="text-[#C7A046] font-mono text-[10px]">({user.role})</span>
+            </div>
+          ) : (
+            <Link
+              href="/login?redirect=/create-auction"
+              className="text-[12px] font-semibold text-[#C7A046] hover:text-[#D9A94E] px-2.5 py-1 rounded bg-[#10151A] border border-[#C7A046]/40 hover:border-[#C7A046] transition-colors"
+            >
+              Sign In as Auctioneer
+            </Link>
+          )}
+        </div>
       </header>
 
       <main className="max-w-4xl w-full mx-auto p-4 sm:p-8 flex-1 space-y-6">
@@ -340,55 +388,77 @@ export default function CreateAuctionPage() {
           <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
             <div>
               <h2 className="text-[18px] font-bold text-[#EDEAE1]">Team participants</h2>
-              <p className="text-[13px] text-[#8B939A]">Set up Team Alpha and Team Beta franchises</p>
+              <p className="text-[13px] text-[#8B939A]">Set up bidder capacity and franchise team profiles</p>
+            </div>
+
+            {/* Bidder Count Selector */}
+            <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] flex items-center justify-between">
+              <div>
+                <span className="text-[14px] font-bold text-[#EDEAE1] block">Number of Bidders</span>
+                <span className="text-[12px] text-[#8B939A]">Select between 2 to 10 competing team franchises</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleBidderCountChange(bidderCount - 1)}
+                  disabled={bidderCount <= 2}
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2B343C]"
+                >
+                  -
+                </button>
+                <span className="font-hero text-[18px] font-bold text-[#C7A046] w-6 text-center tabular-nums">
+                  {bidderCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleBidderCountChange(bidderCount + 1)}
+                  disabled={bidderCount >= 10}
+                  className="w-8 h-8 flex items-center justify-center rounded bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2B343C]"
+                >
+                  +
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Team A */}
-              <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3" style={{ borderLeft: "3px solid #3E7CB1" }}>
-                <span className="text-[12px] font-bold text-[#3E7CB1]">Team Alpha</span>
-                <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Team name</label>
-                  <input
-                    type="text"
-                    value={teamAName}
-                    onChange={(e) => setTeamAName(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Logo URL</label>
-                  <input
-                    type="text"
-                    value={teamALogo}
-                    onChange={(e) => setTeamALogo(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
-                  />
-                </div>
-              </div>
-
-              {/* Team B */}
-              <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3" style={{ borderLeft: "3px solid #B85C38" }}>
-                <span className="text-[12px] font-bold text-[#B85C38]">Team Beta</span>
-                <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Team name</label>
-                  <input
-                    type="text"
-                    value={teamBName}
-                    onChange={(e) => setTeamBName(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Logo URL</label>
-                  <input
-                    type="text"
-                    value={teamBLogo}
-                    onChange={(e) => setTeamBLogo(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
-                  />
-                </div>
-              </div>
+              {teams.map((team, idx) => {
+                const slotLetter = String.fromCharCode(65 + idx);
+                return (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3"
+                    style={{ borderLeft: `3px solid ${team.teamColor || "#C7A046"}` }}
+                  >
+                    <span className="text-[12px] font-bold" style={{ color: team.teamColor || "#C7A046" }}>
+                      Team {slotLetter} (Slot #{idx + 1})
+                    </span>
+                    <div>
+                      <label className="text-[11px] text-[#8B939A] block mb-1">Team name</label>
+                      <input
+                        type="text"
+                        value={team.teamName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTeams((prev) => prev.map((t, i) => (i === idx ? { ...t, teamName: val } : t)));
+                        }}
+                        className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-[#8B939A] block mb-1">Logo URL</label>
+                      <input
+                        type="text"
+                        value={team.teamLogoUrl}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTeams((prev) => prev.map((t, i) => (i === idx ? { ...t, teamLogoUrl: val } : t)));
+                        }}
+                        className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="pt-4 flex justify-between">
@@ -648,11 +718,69 @@ export default function CreateAuctionPage() {
 
               <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2 text-[13px]">
                 <h3 className="font-bold text-[#EDEAE1] border-b border-[#2B343C] pb-1">Teams & rules</h3>
-                <p className="text-[#8B939A]">Team Alpha: <strong className="text-[#3E7CB1]">{teamAName}</strong></p>
-                <p className="text-[#8B939A]">Team Beta: <strong className="text-[#B85C38]">{teamBName}</strong></p>
+                <p className="text-[#8B939A]">Bidders: <strong className="text-[#C7A046] font-hero tabular-nums">{bidderCount} teams</strong></p>
+                <div className="flex flex-wrap gap-1.5 py-1">
+                  {teams.map((t, i) => (
+                    <span key={i} className="text-[11px] px-2 py-0.5 rounded bg-[#161D24] border border-[#2B343C]" style={{ color: t.teamColor }}>
+                      {t.teamName}
+                    </span>
+                  ))}
+                </div>
                 <p className="text-[#8B939A]">Timer: <strong className="text-[#EDEAE1] font-hero tabular-nums">{timerDuration}s</strong> (+{antiSnipeExtension}s extension)</p>
               </div>
             </div>
+
+            {/* Auctioneer Auth Status Card */}
+            {!user || user.role !== "AUCTIONEER" ? (
+              <div className="p-4 rounded-[4px] bg-[#C7A046]/10 border border-[#C7A046]/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-[13px] font-bold text-[#C7A046] flex items-center gap-1.5">
+                    <Shield className="w-4 h-4" />
+                    Auctioneer Sign In Required
+                  </span>
+                  <p className="text-[12px] text-[#8B939A]">
+                    You must be signed in as an <strong>Auctioneer</strong> to create and broadcast this auction arena.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/auth/login", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ email: "auctioneer@bpl.com", password: "Password123!" }),
+                        });
+                        const data = await res.json();
+                        if (data.token && data.user) {
+                          login(data.token, data.user);
+                          addToast("Signed in as Tournament Auctioneer!", "success");
+                        } else {
+                          addToast(data.error || "Login failed", "error");
+                        }
+                      } catch (err: any) {
+                        addToast(err.message, "error");
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-[2px] bg-[#C7A046] hover:bg-[#D9A94E] text-[#10151A] text-[12px] font-bold transition-colors"
+                  >
+                    1-Click Sign In (Auctioneer)
+                  </button>
+                  <Link
+                    href="/login?redirect=/create-auction"
+                    className="px-3 py-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] hover:border-[#8B939A] text-[#EDEAE1] text-[12px] font-medium"
+                  >
+                    All Accounts
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-[3px] bg-emerald-950/20 border border-emerald-800/40 flex items-center gap-2 text-[12px] text-emerald-300">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Ready to launch room as <strong>{user.name}</strong> (AUCTIONEER)</span>
+              </div>
+            )}
 
             <div className="pt-4 flex justify-between">
               <button

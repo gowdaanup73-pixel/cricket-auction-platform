@@ -9,28 +9,46 @@ export async function GET(req: Request) {
       return NextResponse.json({ user: null });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: authUser.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        participants: {
+    let user: any = null;
+    try {
+      if (process.env.DATABASE_URL) {
+        user = await prisma.user.findUnique({
+          where: { id: authUser.userId },
           select: {
             id: true,
-            auctionId: true,
-            teamName: true,
-            initialBudget: true,
-            remainingBudget: true,
-            totalSpent: true,
+            name: true,
+            email: true,
+            role: true,
+            participants: {
+              select: {
+                id: true,
+                auctionId: true,
+                teamName: true,
+                initialBudget: true,
+                remainingBudget: true,
+                totalSpent: true,
+              },
+            },
           },
-        },
-      },
-    });
+        });
+      }
+    } catch (e) {
+      // Database not reachable
+    }
 
     if (!user) {
-      return NextResponse.json({ user: null });
+      // Return user from verified auth token
+      return NextResponse.json({
+        user: {
+          id: authUser.userId,
+          name: authUser.name,
+          email: authUser.email,
+          role: authUser.role,
+          participants: authUser.participantAuctionId
+            ? [{ auctionId: authUser.participantAuctionId, teamName: "Demo Franchise" }]
+            : [],
+        },
+      });
     }
 
     return NextResponse.json({ user });

@@ -25,21 +25,33 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
       : process.env.NEXT_PUBLIC_APP_URL || "https://cricket-auction-platform.onrender.com";
 
   const spectatorInvite = auction.spectatorInvite || "";
-  const bidderInviteA = auction.bidderInviteA || "";
-  const bidderInviteB = auction.bidderInviteB || "";
-
   const [currentSpectatorToken, setCurrentSpectatorToken] = useState(spectatorInvite);
-  const [currentTeamAToken, setCurrentTeamAToken] = useState(bidderInviteA);
-  const [currentTeamBToken, setCurrentTeamBToken] = useState(bidderInviteB);
   const [revoking, setRevoking] = useState<string | null>(null);
+
+  // Parse initial bidder tokens
+  const getInitialTokens = (): Record<number, string> => {
+    const map: Record<number, string> = {};
+    let parsedTokens: string[] = [];
+    if (auction.bidderInvites) {
+      try {
+        parsedTokens = JSON.parse(auction.bidderInvites);
+      } catch (e) {}
+    }
+    if (parsedTokens.length > 0) {
+      parsedTokens.forEach((t, i) => {
+        map[i] = t;
+      });
+    } else {
+      if (auction.bidderInviteA) map[0] = auction.bidderInviteA;
+      if (auction.bidderInviteB) map[1] = auction.bidderInviteB;
+    }
+    return map;
+  };
+
+  const [bidderTokens, setBidderTokens] = useState<Record<number, string>>(getInitialTokens);
 
   if (!isOpen) return null;
 
-  const teamA = auction.participants[0];
-  const teamB = auction.participants[1];
-
-  const teamAUrl = `${origin}/auction/${auction.id}/bidder${currentTeamAToken ? `?token=${currentTeamAToken}` : ""}`;
-  const teamBUrl = `${origin}/auction/${auction.id}/bidder${currentTeamBToken ? `?token=${currentTeamBToken}` : ""}`;
   const spectatorUrl = `${origin}/auction/${auction.id}/watch${currentSpectatorToken ? `?token=${currentSpectatorToken}` : ""}`;
   const auctioneerUrl = `${origin}/auction/${auction.id}/control`;
 
@@ -51,8 +63,9 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
   };
 
   const handleRevokeToken = async (
-    tokenType: "bidderInviteA" | "bidderInviteB" | "spectatorInvite",
-    label: string
+    tokenType: string,
+    label: string,
+    bidderIndex?: number
   ) => {
     try {
       setRevoking(tokenType);
@@ -66,9 +79,11 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
       });
       if (!res.ok) throw new Error("Failed to regenerate token");
       const data = await res.json();
-      if (tokenType === "bidderInviteA") setCurrentTeamAToken(data.newToken);
-      if (tokenType === "bidderInviteB") setCurrentTeamBToken(data.newToken);
-      if (tokenType === "spectatorInvite") setCurrentSpectatorToken(data.newToken);
+      if (tokenType === "spectatorInvite") {
+        setCurrentSpectatorToken(data.newToken);
+      } else if (bidderIndex !== undefined) {
+        setBidderTokens((prev) => ({ ...prev, [bidderIndex]: data.newToken }));
+      }
       addToast(`Regenerated private link for ${label}`, "brass");
     } catch (err: any) {
       addToast(err.message || "Failed to regenerate token", "error");
@@ -78,12 +93,12 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
   };
 
   const isOwnerAuctioneer = Boolean(
-    user?.role === "AUCTIONEER" && user.id === auction.auctioneerId && (auction.bidderInviteA || auction.bidderInviteB)
+    user?.role === "AUCTIONEER" && user.id === auction.auctioneerId
   );
 
   return (
     <div className="fixed inset-0 z-50 bg-[#10151A]/85 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-6 max-w-xl w-full space-y-5">
+      <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-6 max-w-xl w-full space-y-5 max-h-[90vh] flex flex-col justify-between">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#2B343C] pb-3">
           <div className="flex items-center gap-2">
@@ -112,7 +127,7 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
           {isOwnerAuctioneer ? (
             <>
               <span className="text-[#EDEAE1] font-semibold block mb-0.5">Passwordless Private Links:</span>
-              Share these private links. Recipients can join instantly without creating an account or logging in.
+              Share these private links with your franchise bidders ({auction.participants.length} slots). Recipients can join instantly without creating an account or logging in.
             </>
           ) : (
             <>
@@ -140,7 +155,7 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
                 {activeQrLink.title} QR Code
               </h3>
               <p className="text-[12px] text-[#8B939A] mt-0.5">
-                Scan with mobile camera to watch the live auction stream.
+                Scan with mobile camera to join/watch the live auction stream.
               </p>
             </div>
             <button
@@ -153,90 +168,64 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
           </div>
         ) : isOwnerAuctioneer ? (
           /* Full Auctioneer Management Links List */
-          <div className="space-y-3.5">
-            {/* 1. Bidder A Link */}
-            <div className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "4px solid #3E7CB1" }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-bold text-[#EDEAE1]">
-                  Bidder A — {teamA?.teamName || "Team Alpha"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleRevokeToken("bidderInviteA", "Bidder A")}
-                  disabled={revoking === "bidderInviteA"}
-                  className="text-[11px] text-[#3E7CB1] hover:underline flex items-center gap-1"
-                >
-                  <RefreshCw className={`w-3 h-3 ${revoking === "bidderInviteA" ? "animate-spin" : ""}`} />
-                  <span>{revoking === "bidderInviteA" ? "Regenerating..." : "Regenerate"}</span>
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={teamAUrl}
-                  className="flex-1 px-2.5 py-1 text-[12px] bg-[#161D24] border border-[#2B343C] text-[#8B939A] rounded-[2px] font-mono select-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(teamAUrl, "teamA", "Bidder A link")}
-                  className="px-3 py-1 bg-[#EDEAE1] text-[#10151A] rounded-[2px] text-[12px] font-semibold flex items-center gap-1 hover:bg-white"
-                >
-                  {copiedKey === "teamA" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedKey === "teamA" ? "Copied" : "Copy"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveQrLink({ title: `Bidder A (${teamA?.teamName || "Team Alpha"})`, url: teamAUrl })}
-                  className="px-2.5 py-1 bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] rounded-[2px] text-[12px] font-semibold flex items-center gap-1 hover:border-[#8B939A]"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-[#C7A046]" />
-                  <span>QR</span>
-                </button>
-              </div>
-            </div>
+          <div className="space-y-3.5 overflow-y-auto max-h-[50vh] pr-1">
+            {/* Dynamic Bidder Links */}
+            {auction.participants.map((p, idx) => {
+              const tokenVal = bidderTokens[idx] || (idx === 0 ? auction.bidderInviteA : idx === 1 ? auction.bidderInviteB : "") || "";
+              const bidderUrl = `${origin}/auction/${auction.id}/bidder${tokenVal ? `?token=${tokenVal}` : ""}`;
+              const slotLetter = String.fromCharCode(65 + idx);
+              const teamColor = p.teamColor || (idx === 0 ? "#3E7CB1" : idx === 1 ? "#B85C38" : "#2563EB");
+              const tokenType = idx === 0 ? "bidderInviteA" : idx === 1 ? "bidderInviteB" : `bidderInvite_${idx}`;
+              const label = `Bidder ${slotLetter} (${p.teamName})`;
 
-            {/* 2. Bidder B Link */}
-            <div className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "4px solid #B85C38" }}>
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-bold text-[#EDEAE1]">
-                  Bidder B — {teamB?.teamName || "Team Beta"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleRevokeToken("bidderInviteB", "Bidder B")}
-                  disabled={revoking === "bidderInviteB"}
-                  className="text-[11px] text-[#B85C38] hover:underline flex items-center gap-1"
+              return (
+                <div
+                  key={p.id || idx}
+                  className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2"
+                  style={{ borderLeft: `4px solid ${teamColor}` }}
                 >
-                  <RefreshCw className={`w-3 h-3 ${revoking === "bidderInviteB" ? "animate-spin" : ""}`} />
-                  <span>{revoking === "bidderInviteB" ? "Regenerating..." : "Regenerate"}</span>
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={teamBUrl}
-                  className="flex-1 px-2.5 py-1 text-[12px] bg-[#161D24] border border-[#2B343C] text-[#8B939A] rounded-[2px] font-mono select-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(teamBUrl, "teamB", "Bidder B link")}
-                  className="px-3 py-1 bg-[#EDEAE1] text-[#10151A] rounded-[2px] text-[12px] font-semibold flex items-center gap-1 hover:bg-white"
-                >
-                  {copiedKey === "teamB" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedKey === "teamB" ? "Copied" : "Copy"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveQrLink({ title: `Bidder B (${teamB?.teamName || "Team Beta"})`, url: teamBUrl })}
-                  className="px-2.5 py-1 bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] rounded-[2px] text-[12px] font-semibold flex items-center gap-1 hover:border-[#8B939A]"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-[#C7A046]" />
-                  <span>QR</span>
-                </button>
-              </div>
-            </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] font-bold text-[#EDEAE1]">
+                      Bidder {slotLetter} — {p.teamName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeToken(tokenType, label, idx)}
+                      disabled={revoking === tokenType}
+                      className="text-[11px] hover:underline flex items-center gap-1"
+                      style={{ color: teamColor }}
+                    >
+                      <RefreshCw className={`w-3 h-3 ${revoking === tokenType ? "animate-spin" : ""}`} />
+                      <span>{revoking === tokenType ? "Regenerating..." : "Regenerate"}</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={bidderUrl}
+                      className="flex-1 px-2.5 py-1 text-[12px] bg-[#161D24] border border-[#2B343C] text-[#8B939A] rounded-[2px] font-mono select-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(bidderUrl, `bidder_${idx}`, label)}
+                      className="px-3 py-1 bg-[#EDEAE1] text-[#10151A] rounded-[2px] text-[12px] font-semibold flex items-center gap-1 hover:bg-white"
+                    >
+                      {copiedKey === `bidder_${idx}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedKey === `bidder_${idx}` ? "Copied" : "Copy"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveQrLink({ title: label, url: bidderUrl })}
+                      className="px-2.5 py-1 bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] rounded-[2px] text-[12px] font-semibold flex items-center gap-1 hover:border-[#8B939A]"
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-[#C7A046]" />
+                      <span>QR</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
 
             {/* 3. Spectator Link */}
             <div className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2">

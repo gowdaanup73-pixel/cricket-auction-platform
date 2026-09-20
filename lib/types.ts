@@ -17,7 +17,7 @@ export interface GuestSessionPayload {
   auctionId: string;
   role: "BIDDER" | "SPECTATOR";
   participantId?: string; // For bidders: specific AuctionParticipant document ID
-  teamSlot?: "A" | "B";   // For bidders: "A" | "B"
+  teamSlot?: string;      // For bidders: "A" | "B" | "C" etc.
   tokenVersion: string;   // Current token hash / value for immediate revocation checking
   userId: string;         // Participant's assigned user ID
   name: string;
@@ -104,6 +104,8 @@ export interface ClientAuction {
   roomCode: string;
   bidderInviteA?: string | null;
   bidderInviteB?: string | null;
+  bidderInvites?: string | null;
+  bidderCount?: number;
   spectatorInvite?: string | null;
   isConfigLocked?: boolean;
   name: string;

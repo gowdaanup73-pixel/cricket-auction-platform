@@ -13,6 +13,9 @@ interface SocketContextType {
   bidderAReady: boolean;
   bidderBReady: boolean;
   allBiddersReady: boolean;
+  readyBidderCount: number;
+  requiredBidderCount: number;
+  participantReadiness: Record<string, boolean>;
   lastEventTime: number;
 }
 
@@ -25,6 +28,9 @@ const SocketContext = createContext<SocketContextType>({
   bidderAReady: false,
   bidderBReady: false,
   allBiddersReady: false,
+  readyBidderCount: 0,
+  requiredBidderCount: 2,
+  participantReadiness: {},
   lastEventTime: 0,
 });
 
@@ -48,6 +54,9 @@ export function SocketProvider({
   const [bidderAReady, setBidderAReady] = useState(false);
   const [bidderBReady, setBidderBReady] = useState(false);
   const [allBiddersReady, setAllBiddersReady] = useState(false);
+  const [readyBidderCount, setReadyBidderCount] = useState(0);
+  const [requiredBidderCount, setRequiredBidderCount] = useState(2);
+  const [participantReadiness, setParticipantReadiness] = useState<Record<string, boolean>>({});
   const [lastEventTime, setLastEventTime] = useState(Date.now());
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
@@ -99,6 +108,9 @@ export function SocketProvider({
       if (data.bidderAReady !== undefined) setBidderAReady(data.bidderAReady);
       if (data.bidderBReady !== undefined) setBidderBReady(data.bidderBReady);
       if (data.allBiddersReady !== undefined) setAllBiddersReady(data.allBiddersReady);
+      if (data.readyBidderCount !== undefined) setReadyBidderCount(data.readyBidderCount);
+      if (data.requiredBidderCount !== undefined) setRequiredBidderCount(data.requiredBidderCount);
+      if (data.participantReadiness) setParticipantReadiness(data.participantReadiness);
       if (onEventRef.current) {
         onEventRef.current("presence_updated", data);
       }
@@ -151,6 +163,9 @@ export function SocketProvider({
         bidderAReady,
         bidderBReady,
         allBiddersReady,
+        readyBidderCount,
+        requiredBidderCount,
+        participantReadiness,
         lastEventTime,
       }}
     >

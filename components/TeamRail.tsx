@@ -25,7 +25,7 @@ export function TeamRail({
     );
   }
 
-  const teamColor = variant === "team-a" ? "#3E7CB1" : "#B85C38";
+  const teamColor = participant.teamColor || (variant === "team-a" ? "#3E7CB1" : "#B85C38");
   const wonItems = items.filter((i) => i.winnerId === participant.userId && i.status === "SOLD");
 
   const initialBudget = participant.initialBudget || 1;

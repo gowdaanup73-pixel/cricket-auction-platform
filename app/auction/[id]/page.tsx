@@ -334,14 +334,19 @@ export default function AuctionArenaPage() {
         {/* Main 3-Column Arena Stage */}
         <main className="max-w-7xl w-full mx-auto p-3 sm:p-5 flex-1 flex flex-col justify-center">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-            {/* Left Column: Team A Rail (~20% on desktop) */}
-            <div className="hidden lg:block lg:col-span-3 h-full">
-              <TeamRail
-                participant={teamA}
-                items={auction.items}
-                variant="team-a"
-                isSelf={user?.id === teamA?.userId}
-              />
+            {/* Left Column: Left Team Rails (~20% on desktop) */}
+            <div className="hidden lg:block lg:col-span-3 h-full space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+              {auction.participants
+                .filter((_, idx) => idx % 2 === 0)
+                .map((p, idx) => (
+                  <TeamRail
+                    key={p.id || idx}
+                    participant={p}
+                    items={auction.items}
+                    variant="team-a"
+                    isSelf={user?.id === p?.userId}
+                  />
+                ))}
             </div>
 
             {/* Center Column: Dominant Item Spotlight (~60% on desktop) */}
@@ -377,30 +382,32 @@ export default function AuctionArenaPage() {
               )}
             </div>
 
-            {/* Right Column: Team B Rail (~20% on desktop) */}
-            <div className="hidden lg:block lg:col-span-3 h-full">
-              <TeamRail
-                participant={teamB}
-                items={auction.items}
-                variant="team-b"
-                isSelf={user?.id === teamB?.userId}
-              />
+            {/* Right Column: Right Team Rails (~20% on desktop) */}
+            <div className="hidden lg:block lg:col-span-3 h-full space-y-4 max-h-[calc(100vh-140px)] overflow-y-auto pr-1">
+              {auction.participants
+                .filter((_, idx) => idx % 2 === 1)
+                .map((p, idx) => (
+                  <TeamRail
+                    key={p.id || idx}
+                    participant={p}
+                    items={auction.items}
+                    variant="team-b"
+                    isSelf={user?.id === p?.userId}
+                  />
+                ))}
             </div>
 
             {/* Mobile View: Stack Team Rails below spotlight */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
-              <TeamRail
-                participant={teamA}
-                items={auction.items}
-                variant="team-a"
-                isSelf={user?.id === teamA?.userId}
-              />
-              <TeamRail
-                participant={teamB}
-                items={auction.items}
-                variant="team-b"
-                isSelf={user?.id === teamB?.userId}
-              />
+              {auction.participants.map((p, idx) => (
+                <TeamRail
+                  key={p.id || idx}
+                  participant={p}
+                  items={auction.items}
+                  variant={idx % 2 === 0 ? "team-a" : "team-b"}
+                  isSelf={user?.id === p?.userId}
+                />
+              ))}
             </div>
           </div>
         </main>

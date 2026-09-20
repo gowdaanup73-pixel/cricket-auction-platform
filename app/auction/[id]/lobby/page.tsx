@@ -16,7 +16,7 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
   const router = useRouter();
   const { user, token } = useAuth();
   const { addToast } = useToast();
-  const { connected, spectatorCount, bidderAReady, bidderBReady, allBiddersReady } = useAuctionSocket();
+  const { connected, spectatorCount, bidderAReady, bidderBReady, allBiddersReady, participantReadiness } = useAuctionSocket();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -95,54 +95,47 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Team A */}
-          <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "3px solid #3E7CB1" }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-[#3E7CB1] font-bold block">Team Alpha</span>
-                <h3 className="text-[15px] font-bold text-[#EDEAE1]">{teamA?.teamName || "Team Alpha"}</h3>
-              </div>
-              {isTeamAReady ? (
-                <div className="flex items-center gap-1 text-[12px] text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Ready</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
-                  <Circle className="w-3.5 h-3.5" />
-                  <span>Waiting</span>
-                </div>
-              )}
-            </div>
-            <div className="text-[12px] text-[#8B939A]">
-              Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(teamA?.initialBudget || 0)}</strong>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {auction.participants.map((p, idx) => {
+            const isReady =
+              (participantReadiness && participantReadiness[p.id]) ||
+              (idx === 0 && bidderAReady) ||
+              (idx === 1 && bidderBReady) ||
+              auction.status === "READY";
+            const teamColor = p.teamColor || (idx === 0 ? "#3E7CB1" : idx === 1 ? "#B85C38" : "#2563EB");
+            const slotLetter = String.fromCharCode(65 + idx);
 
-          {/* Team B */}
-          <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "3px solid #B85C38" }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-[#B85C38] font-bold block">Team Beta</span>
-                <h3 className="text-[15px] font-bold text-[#EDEAE1]">{teamB?.teamName || "Team Beta"}</h3>
+            return (
+              <div
+                key={p.id || idx}
+                className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2"
+                style={{ borderLeft: `3px solid ${teamColor}` }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold block" style={{ color: teamColor }}>
+                      Team {slotLetter}
+                    </span>
+                    <h3 className="text-[15px] font-bold text-[#EDEAE1]">{p.teamName}</h3>
+                  </div>
+                  {isReady ? (
+                    <div className="flex items-center gap-1 text-[12px] text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Ready</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
+                      <Circle className="w-3.5 h-3.5" />
+                      <span>Waiting</span>
+                    </div>
+                  )}
+                </div>
+                <div className="text-[12px] text-[#8B939A]">
+                  Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(p.initialBudget || 0)}</strong>
+                </div>
               </div>
-              {isTeamBReady ? (
-                <div className="flex items-center gap-1 text-[12px] text-emerald-400">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Ready</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
-                  <Circle className="w-3.5 h-3.5" />
-                  <span>Waiting</span>
-                </div>
-              )}
-            </div>
-            <div className="text-[12px] text-[#8B939A]">
-              Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(teamB?.initialBudget || 0)}</strong>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Rules Brief */}
