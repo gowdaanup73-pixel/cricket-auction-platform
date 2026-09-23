@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root{
   --ink: #10151A;
   --stadium-navy: #0A0F16;
   --panel: #131A22;
